@@ -10,6 +10,9 @@ from skybeard.beards import Beard
 
 logger = logging.getLogger(__name__)
 
+def drop_prefix(data):
+    return data[3:]
+
 class NamedVoteBeard(Beard):
     """Named voting for skybeard-2
 
@@ -22,13 +25,16 @@ class NamedVoteBeard(Beard):
 
     def initialise(self):
         self.disp.add_handler(CommandHandler("nvtest", self.test))
+
+        # Conversation for a simple yes no question
         self.disp.add_handler(ConversationHandler(
             entry_points=[CommandHandler('nvask', self.ask_what)],
             states={
                 self.YesNoQuestionEnum.ASKING: [MessageHandler(Filters.text, self.ask), ]
             },
-            fallbacks=[CommandHandler('cancel', lambda x, y: True)]
+            fallbacks=[CommandHandler('cancel', lambda x, y: ConversationHandler.END)]
         ))
+
         self.disp.add_handler(CallbackQueryHandler(self.update_quiz))
 
         self.yes_no_maybe = InlineKeyboardMarkup([
@@ -37,9 +43,8 @@ class NamedVoteBeard(Beard):
             [InlineKeyboardButton("c) Maybe", callback_data='nvtc)')],
         ])
 
-    def drop_prefix(self, data):
-        return data[3:]
 
+    # YesNoQuestion code
     def ask_what(self, bot, update):
         update.message.reply_text("Sup. What's your question?")
 
@@ -53,21 +58,27 @@ class NamedVoteBeard(Beard):
     def test(self, bot, update):
         update.message.reply_text('Please choose:\na)\nb)\nc)', reply_markup=self.yes_no_maybe)
 
+
     def add_name(self, text, name):
-        if text[1] == ")":
+        if text[-1] == ")":
             return "{} {}".format(text, name)
         else:
             return "{}, {}".format(text, name)
 
     def remove_name(self, text, name):
-        return re.sub(r"\s{},?".format(name), "", text)
+        retval = re.sub(r"\s{},?".format(name), "", text)
+        if retval[-1] == ",":
+            retval = retval[:-1]
+        retval = retval.strip()
+        return retval
+
 
     def update_quiz(self, bot, update):
         query = update.callback_query
 
         text_as_list = query.message.text.split("\n")
 
-        data = self.drop_prefix(query.data)
+        data = drop_prefix(query.data)
         full_name = "{} {}".format(query.from_user.first_name, query.from_user.last_name)
         for i in range(len(text_as_list)):
             if text_as_list[i][:2] == data:
