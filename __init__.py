@@ -1,5 +1,6 @@
 import logging
 import re
+from enum import Enum
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import MessageHandler, Filters, CommandHandler, CallbackQueryHandler, ConversationHandler
@@ -9,21 +10,22 @@ from skybeard.beards import Beard
 
 logger = logging.getLogger(__name__)
 
-# Adapted from https://github.com/python-telegram-bot/python-telegram-bot/blob/46657afa95bd720bb1319fcb9bc1e8cae82e02b9/examples/inlinekeyboard.py
-
-ASKING = 1
-
 class NamedVoteBeard(Beard):
     """Named voting for skybeard-2
 
-    Type /nvtest to to make test poll."""
+    Type /nvtest to make test poll.
+    Type /nvask to ask a specific yes/no question.
+    """
+
+    class YesNoQuestionEnum(Enum):
+        ASKING = 1
 
     def initialise(self):
         self.disp.add_handler(CommandHandler("nvtest", self.test))
         self.disp.add_handler(ConversationHandler(
             entry_points=[CommandHandler('nvask', self.ask_what)],
             states={
-                ASKING: [MessageHandler(Filters.text, self.ask), ]
+                self.YesNoQuestionEnum.ASKING: [MessageHandler(Filters.text, self.ask), ]
             },
             fallbacks=[CommandHandler('cancel', lambda x, y: True)]
         ))
@@ -41,7 +43,7 @@ class NamedVoteBeard(Beard):
     def ask_what(self, bot, update):
         update.message.reply_text("Sup. What's your question?")
 
-        return ASKING
+        return self.YesNoQuestionEnum.ASKING
 
     def ask(self, bot, update):
         update.message.reply_text('{}\na)\nb)\nc)'.format(update.message.text), reply_markup=self.yes_no_maybe)
@@ -81,16 +83,3 @@ class NamedVoteBeard(Beard):
                             chat_id=query.message.chat_id,
                             message_id=query.message.message_id,
                             reply_markup=self.yes_no_maybe)
-
-    # def callback_handler(self, bot, update):
-    #     query = update.callback_query
-
-        # to_add = "\n{first} {last}: {answer}".format(
-        #     first=query.from_user.first_name,
-        #     last=query.from_user.last_name,
-        #     answer=query.data)
-
-        # bot.editMessageText(text=query.message.text+to_add,
-        #                     chat_id=query.message.chat_id,
-        #                     message_id=query.message.message_id,
-        #                     reply_markup=self.yes_no_maybe)
