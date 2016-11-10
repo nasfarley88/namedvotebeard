@@ -79,13 +79,19 @@ class NamedVoteBeard(Beard):
         text_as_list = query.message.text.split("\n")
 
         data = drop_prefix(query.data)
-        full_name = "{} {}".format(query.from_user.first_name, query.from_user.last_name)
+
+        if query.from_user.last_name:
+            name = "{} {}".format(
+                query.from_user.first_name, query.from_user.last_name)
+        else:
+            name = query.from_user.first_name
+
         for i in range(len(text_as_list)):
             if text_as_list[i][:2] == data:
-                if full_name in text_as_list[i]:
-                    text_as_list[i] = self.remove_name(text_as_list[i], full_name)
+                if name in text_as_list[i]:
+                    text_as_list[i] = self.remove_name(text_as_list[i], name)
                 else:
-                    text_as_list[i] = self.add_name(text_as_list[i], full_name)
+                    text_as_list[i] = self.add_name(text_as_list[i], name)
 
         new_text = "\n".join(text_as_list)
 
