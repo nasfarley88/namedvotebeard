@@ -10,6 +10,10 @@ from skybeard.beards import BeardAsyncChatHandlerMixin, ThatsNotMineException
 logger = logging.getLogger(__name__)
 
 
+def get_args(msg):
+    return msg['text'].split(" ")[1:]
+
+
 class NamedVoteBeard(telepot.aio.helper.ChatHandler,
                      BeardAsyncChatHandlerMixin):
     """Named voting for skybeard-2
@@ -42,11 +46,17 @@ class NamedVoteBeard(telepot.aio.helper.ChatHandler,
             reply_markup=reply_markup)
 
     async def ask_question(self, msg):
-        await self.sender.sendMessage("Sup. What's the question?")
-        query_msg = await self.listener.wait()
-        await self._post_quiz(
-            text=query_msg['text'],
-            reply_markup=self.yes_no_maybe)
+        args = get_args(msg)
+        if args:
+            await self._post_quiz(
+                text=" ".join(args),
+                reply_markup=self.yes_no_maybe)
+        else:
+            await self.sender.sendMessage("Sup. What's the question?")
+            query_msg = await self.listener.wait()
+            await self._post_quiz(
+                text=query_msg['text'],
+                reply_markup=self.yes_no_maybe)
 
     async def test(self, msg):
         await self._post_quiz(
