@@ -16,10 +16,12 @@ def get_args(msg):
 
 class NamedVoteBeard(telepot.aio.helper.ChatHandler,
                      BeardAsyncChatHandlerMixin):
-    """Named voting for skybeard-2
 
-    Type /nvtest to make test poll.
-    Type /nvask to ask a specific yes/no question.
+    __userhelp__ = """Named voting for skybeard-2
+
+· Type /nvtest to make test poll.
+· Type /nvask to ask a specific yes/no question. Optionally, provide the question directly to /nvask as:
+    <code>/nvask Is it sleeping?</code>
     """
 
     def __init__(self, *args, **kwargs):
