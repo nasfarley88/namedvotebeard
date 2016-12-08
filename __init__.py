@@ -72,7 +72,7 @@ class NamedVoteBeard(telepot.aio.helper.ChatHandler,
         except ThatsNotMineException:
             return
 
-        if msg['from']['last_name']:
+        if 'last_name' in msg['from']:
             name = "{} {}".format(
                 msg['from']['first_name'], msg['from']['last_name'])
         else:
