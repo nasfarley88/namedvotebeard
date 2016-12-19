@@ -5,7 +5,7 @@ import telepot
 import telepot.aio
 from telepot import glance
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
-from skybeard.beards import BeardAsyncChatHandlerMixin, ThatsNotMineException
+from skybeard.beards import BeardChatHandler, ThatsNotMineException
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +14,19 @@ def get_args(msg):
     return msg['text'].split(" ")[1:]
 
 
-class NamedVoteBeard(telepot.aio.helper.ChatHandler,
-                     BeardAsyncChatHandlerMixin):
+class NamedVoteBeard(BeardChatHandler):
 
-    __userhelp__ = """Named voting for skybeard-2
+    __userhelp__ = """Named voting for skybeard-2."""
 
-· Type /nvtest to make test poll.
-· Type /nvask to ask a specific yes/no question. Optionally, provide the question directly to /nvask as:
-    <code>/nvask Is it sleeping?</code>
-    """
+    __commands__ = [
+        ('nvtest', 'test', "Ask a test question"),
+        ('voteyesno', 'ask_question',
+         "Ask a yes/no question. 0 args: ask for question."
+         " 1+ args, uses args as question."),
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.register_command("nvtest", self.test)
-        self.register_command("nvask", self.ask_question)
 
         self.yes_no_maybe = InlineKeyboardMarkup(
             inline_keyboard=[
