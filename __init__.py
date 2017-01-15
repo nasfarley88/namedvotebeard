@@ -1,11 +1,17 @@
 import logging
 import re
+import string
+
+import dataset
+#import yaml
+import pickle
 
 import telepot
 import telepot.aio
 from telepot import glance
 from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
 from skybeard.beards import BeardChatHandler, ThatsNotMineException
+from skybeard import utils, decorators
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +19,24 @@ logger = logging.getLogger(__name__)
 def get_args(msg):
     return msg['text'].split(" ")[1:]
 
+DB_NAME = "sqlite:///namedvotebeard.db"
+
+class BeardDBTable(object):
+    """Placeholder class for getting a table."""
+
+    def __init__(self, beard, table_name):
+        self.beard = beard
+        self.table_name = beard.get_name()+"_"+table_name
+
+    def __enter__(self):
+        self.db = dataset.connect(DB_NAME)
+        self.table = self.db[self.table_name]
+        return self.table
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.db = None
+        self.table = None
+        return
 
 class NamedVoteBeard(BeardChatHandler):
 
@@ -23,6 +47,7 @@ class NamedVoteBeard(BeardChatHandler):
         ('voteyesno', 'ask_question',
          "Ask a yes/no question. 0 args: ask for question."
          " 1+ args, uses args as question."),
+        ("voteany", "vote_any", "Ask anything! 2 args: [question] [options]"),
     ]
 
     def __init__(self, *args, **kwargs):
@@ -40,6 +65,26 @@ class NamedVoteBeard(BeardChatHandler):
                     text="c) Maybe",
                     callback_data=self.serialize('c)'))],
             ])
+
+    async def make_keyboard(self, items):
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="{}) {}".format(string.ascii_letters[prefix], info.strip()),
+                                      callback_data=self.serialize(string.ascii_letters[prefix]+")"))]
+                for prefix, info in enumerate(items)])
+
+        return keyboard
+
+    @decorators.onerror("Sorry, something went wrong. Perhaps too few arguments?")
+    async def vote_any(self, msg):
+        args = utils.get_args(msg['text'])
+        items = [x.strip() for x in args[1].split(",")]
+        keyboard = await self.make_keyboard(items)
+        text = "{}\n{}".format(args[0],
+                               "\n".join([string.ascii_letters[x]+")" for x in range(len(items))]))
+        msg = await self.sender.sendMessage(text, reply_markup=keyboard)
+        with BeardDBTable(NamedVoteBeard, "messages") as table:
+            table.insert(dict(msg_id=msg['message_id'], msg=pickle.dumps(msg), keyboard=pickle.dumps(items)))
 
     async def _post_quiz(self, text, reply_markup):
         await self.sender.sendMessage(
@@ -90,10 +135,18 @@ class NamedVoteBeard(BeardChatHandler):
         new_text = "\n".join(text_as_list)
 
         # TODO set up to take the keyboard from the query
+        #await self.bot.editMessageText(
+        #    telepot.origin_identifier(msg),
+        #    text=new_text,
+        #    reply_markup=self.yes_no_maybe)
+        self.logger.debug(str(msg))
+        with BeardDBTable(NamedVoteBeard, "messages") as table:
+            entry = table.find_one(msg_id=msg['message']['message_id'])
+
         await self.bot.editMessageText(
-            telepot.origin_identifier(msg),
-            text=new_text,
-            reply_markup=self.yes_no_maybe)
+             telepot.origin_identifier(msg),
+             text=new_text,
+             reply_markup=await self.make_keyboard(pickle.loads(entry['keyboard'])))
 
     async def add_name(self, text, name):
         if text[-1] == ")":
