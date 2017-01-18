@@ -34,8 +34,9 @@ class BeardDBTable(object):
         return self.table
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.db = None
-        self.table = None
+        self.db.commit()
+        del self.db
+        del self.table
         return
 
 class NamedVoteBeard(BeardChatHandler):
