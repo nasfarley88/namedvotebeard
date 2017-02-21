@@ -17,7 +17,7 @@ from skybeard.decorators import onerror
 from skybeard.utils import get_args
 from skybeard.bearddbtable import BeardDBTable
 
-from .utils import get_user_name
+from .utils import get_user_name, make_reply_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,20 @@ class NamedVoteBeard(BeardChatHandler):
         self.messages_table = BeardDBTable(self, "messages")
 
     async def make_keyboard(self, items):
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(
-                    text="{}) {}".format(
-                        string.ascii_letters[prefix], info.strip()),
-                    callback_data=self.serialize(
-                        string.ascii_letters[prefix]+")"))]
-                for prefix, info in enumerate(items)])
+        """Creates keyboard for a given iterable of strings."""
+        # TODO make this support rows of 2 if the question replies are small
+        # enough
+        inline_keyboard = []
+        for item_ind, info in enumerate(items):
+            prefix = make_reply_prefix(item_ind)
+            button = {
+                'text': "{}) {}".format(prefix, info.strip()),
+                'callback_data': self.serialize(prefix),
+            }
+
+            inline_keyboard.append([InlineKeyboardButton(**button)])
+
+            keyboard = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
         return keyboard
 
