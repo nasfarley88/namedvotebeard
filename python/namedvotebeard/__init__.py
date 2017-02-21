@@ -17,6 +17,8 @@ from skybeard.decorators import onerror
 from skybeard.utils import get_args
 from skybeard.bearddbtable import BeardDBTable
 
+from .utils import get_user_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,11 +82,7 @@ class NamedVoteBeard(BeardChatHandler):
         except ThatsNotMineException:
             return
 
-        if 'last_name' in msg['from']:
-            name = "{} {}".format(
-                msg['from']['first_name'], msg['from']['last_name'])
-        else:
-            name = msg['from']['first_name']
+        name = get_user_name(msg['from'])
 
         text_as_list = msg['message']['text'].split("\n")
         for i in range(len(text_as_list)):
