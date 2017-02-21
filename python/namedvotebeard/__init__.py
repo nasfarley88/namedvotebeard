@@ -15,6 +15,7 @@ from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
 from skybeard.beards import BeardChatHandler, ThatsNotMineException
 from skybeard.decorators import onerror
 from skybeard.utils import get_args
+from skybeard.predicates import regex_predicate
 from skybeard.bearddbtable import BeardDBTable
 
 from .utils import get_user_name, make_reply_prefix
@@ -27,7 +28,7 @@ class NamedVoteBeard(BeardChatHandler):
     __userhelp__ = """Named voting for skybeard-2."""
 
     __commands__ = [
-        ('nvtest', 'test', "Ask a test question"),
+        (regex_predicate("_test"), 'test', "Ask a test question"),
         ('voteyesno', 'ask_question',
          "Ask a yes/no question. 0 args: ask for question."
          " 1+ args, uses args as question."),
@@ -52,7 +53,7 @@ class NamedVoteBeard(BeardChatHandler):
         for item_ind, info in enumerate(items):
             prefix = make_reply_prefix(item_ind)
             button = {
-                'text': "{}) {}".format(prefix, info.strip()),
+                'text': "{} {}".format(prefix, info.strip()),
                 'callback_data': self.serialize(prefix),
             }
 
@@ -70,7 +71,7 @@ class NamedVoteBeard(BeardChatHandler):
         if question is None:
             question = args[0]
         if responses is None:
-            responses = [x.strip() for x in args[1].split(",")]
+            responses = [x.strip() for x in args[1:]]
         keyboard = await self.make_keyboard(responses)
         text = "{}\n{}".format(question,
                                "\n".join([string.ascii_letters[x]+")"
