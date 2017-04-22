@@ -29,7 +29,7 @@ class NamedVoteBeard(BeardChatHandler):
 
     __commands__ = [
         (regex_predicate("_test"), 'test', "Ask a test question"),
-        ('voteyesno', 'ask_question',
+        ('voteyesno', 'vote_yes_no',
          "Ask a yes/no question. 0 args: ask for question."
          " 1+ args, uses args as question."),
         ("voteany", "vote_any", "Ask anything! 2 args: [question] [options]"),
@@ -41,9 +41,15 @@ class NamedVoteBeard(BeardChatHandler):
         self.test = partial(self.vote_any,
                             question="Test question?",
                             responses=["Yes", "No", "Foo bar?"])
-        self.ask_question = partial(self.vote_any,
-                                    responses=["Yes", "No", "Maybe"])
+        # self.ask_question = partial(self.vote_any,
+                                    # responses=["Yes", "No", "Maybe"])
         self.messages_table = BeardDBTable(self, "messages")
+
+    async def vote_yes_no(self, msg):
+        question = get_args(msg, return_string=True)
+        await self.vote_any(
+            question=question,
+            responses=["Yes", "No", "Maybe"])
 
     async def make_keyboard(self, items):
         """Creates keyboard for a given iterable of strings."""
@@ -51,7 +57,7 @@ class NamedVoteBeard(BeardChatHandler):
         # enough
         inline_keyboard = []
         for item_ind, info in enumerate(items):
-            prefix = make_reply_prefix(item_ind)
+            prefix = await make_reply_prefix(item_ind)
             button = {
                 'text': "{} {}".format(prefix, info.strip()),
                 'callback_data': self.serialize(prefix),
@@ -89,7 +95,7 @@ class NamedVoteBeard(BeardChatHandler):
         except ThatsNotMineException:
             return
 
-        name = get_user_name(msg['from'])
+        name = await get_user_name(msg['from'])
 
         text_as_list = msg['message']['text'].split("\n")
         for i in range(len(text_as_list)):
