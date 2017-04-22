@@ -3,7 +3,7 @@
 import string
 
 
-def get_user_name(user):
+async def get_user_name(user):
     """Returns the user's name as a string."""
     if 'last_name' in user:
         name = "{} {}".format(
@@ -14,7 +14,7 @@ def get_user_name(user):
     return name
 
 
-def make_reply_prefix(item_ind):
+async def make_reply_prefix(item_ind):
     """Makes the prefix for a question response. e.g. 3 -> 'c)'
 
     Takes the number (up to 52) of the response.
