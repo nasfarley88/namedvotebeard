@@ -1,12 +1,9 @@
 import logging
-import re
 import string
+import pyconfig
 from functools import partial
 
-try:
-    import dill as pickle
-except ImportError:
-    import pickle
+import dill
 
 import telepot
 import telepot.aio
@@ -16,9 +13,14 @@ from skybeard.beards import BeardChatHandler, ThatsNotMineException
 from skybeard.decorators import onerror
 from skybeard.utils import get_args
 from skybeard.predicates import regex_predicate
-from skybeard.bearddbtable import BeardDBTable
+from skybeard.bearddbtable import BeardDBTable, make_binary_entry_filename
 
-from .utils import get_user_name, make_reply_prefix
+from .utils import (get_user_name,
+                    make_reply_prefix,
+                    add_name,
+                    remove_name,
+                    make_namedtuple_dict_recursively,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +43,6 @@ class NamedVoteBeard(BeardChatHandler):
         self.test = partial(self.vote_any,
                             question="Test question?",
                             responses=["Yes", "No", "Foo bar?"])
-        # self.ask_question = partial(self.vote_any,
-                                    # responses=["Yes", "No", "Maybe"])
         self.messages_table = BeardDBTable(self, "messages")
 
     async def vote_yes_no(self, msg):
@@ -67,6 +67,8 @@ class NamedVoteBeard(BeardChatHandler):
 
             keyboard = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
+            keyboard = make_namedtuple_dict_recursively(keyboard)
+
         return keyboard
 
     @onerror("Sorry, something went wrong. Perhaps too few arguments?")
@@ -79,14 +81,23 @@ class NamedVoteBeard(BeardChatHandler):
         if responses is None:
             responses = [x.strip() for x in args[1:]]
         keyboard = await self.make_keyboard(responses)
+
         text = "{}\n{}".format(question,
                                "\n".join([string.ascii_letters[x]+")"
                                           for x in range(len(responses))]))
         msg = await self.sender.sendMessage(text, reply_markup=keyboard)
+
         with self.messages_table as table:
-            table.insert(dict(msg_id=msg['message_id'],
-                              msg=pickle.dumps(msg),
-                              keyboard=pickle.dumps(responses)))
+            entry = dict(
+                msg_id=msg['message_id'],
+                msg_filename=await make_binary_entry_filename(table, 'msg'),
+                keyboard_filename=await make_binary_entry_filename(table, 'keyboard')
+            )
+            table.insert(entry)
+
+        # Insert the data into the database binary storage
+        dill.dump(msg, open(entry['msg_filename'], 'wb'))
+        dill.dump(keyboard, open(entry['keyboard_filename'], 'wb'))
 
     async def on_callback_query(self, msg):
         query_id, from_id, query_data = glance(msg, flavor='callback_query')
@@ -101,32 +112,19 @@ class NamedVoteBeard(BeardChatHandler):
         for i in range(len(text_as_list)):
             if text_as_list[i][:2] == data:
                 if name in text_as_list[i]:
-                    text_as_list[i] = await self.remove_name(
+                    text_as_list[i] = await remove_name(
                         text_as_list[i], name)
                 else:
-                    text_as_list[i] = await self.add_name(
+                    text_as_list[i] = await add_name(
                         text_as_list[i], name)
 
         new_text = "\n".join(text_as_list)
 
         with self.messages_table as table:
             entry = table.find_one(msg_id=msg['message']['message_id'])
+            db_keyboard = dill.load(open(entry['keyboard_filename'], 'rb'))
 
         await self.bot.editMessageText(
              telepot.origin_identifier(msg),
              text=new_text,
-             reply_markup=await self.make_keyboard(
-                 pickle.loads(entry['keyboard'])))
-
-    async def add_name(self, text, name):
-        if text[-1] == ")":
-            return "{} {}".format(text, name)
-        else:
-            return "{}, {}".format(text, name)
-
-    async def remove_name(self, text, name):
-        retval = re.sub(r"\s{},?".format(name), "", text)
-        if retval[-1] == ",":
-            retval = retval[:-1]
-        retval = retval.strip()
-        return retval
+             reply_markup=db_keyboard)
